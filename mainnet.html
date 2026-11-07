@@ -1,0 +1,32 @@
+<!doctype html><meta charset=utf-8><title>Sui move demo</title><pre id=L style="white-space:pre-wrap"></pre><script>
+const L=t=>{document.getElementById('L').textContent+=t+'\n'};
+window.__wallets=[];
+window.addEventListener('wallet-standard:register-wallet',e=>{try{e.detail({register:(...w)=>window.__wallets.push(...w)})}catch(_){}});
+window.dispatchEvent(new CustomEvent('wallet-standard:app-ready',{detail:{register:(...w)=>window.__wallets.push(...w)}}));
+const b64=u=>btoa(String.fromCharCode(...u));
+const u64=n=>{const b=new Uint8Array(8);new DataView(b.buffer).setBigUint64(0,BigInt(n),true);return b64(b)};
+const ad=h=>b64(Uint8Array.from(h.replace(/^0x/,'').match(/../g).map(x=>parseInt(x,16))));
+const me=window.__slushAcct||'';
+const to='0x26b1dc297f443afb4c04269063e80fa30ac61923abb3156f099967a0a5a85878';
+const amt=100000000n;
+function ptb(sender){
+ return {version:2,sender,expiration:null,gasData:{budget:null,price:null,owner:null,payment:null},
+ inputs:[{Pure:{bytes:u64(amt)}},{Pure:{bytes:ad(to)}}],
+ commands:[
+  {SplitCoins:{coin:{GasCoin:true},amounts:[{Input:0}]}},
+  {MoveCall:{package:'0x0000000000000000000000000000000000000000000000000000000000000002',module:'coin',function:'into_balance',typeArguments:['0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'],arguments:[{NestedResult:[0,0]}]}},
+  {MoveCall:{package:'0x0000000000000000000000000000000000000000000000000000000000000002',module:'balance',function:'send_funds',typeArguments:['0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'],arguments:[{NestedResult:[1,0]},{Input:1}]}}]};
+}
+(async()=>{
+ try{
+  const w=window.__wallets[0]||window.suiWallet;
+  if(!w){L('no wallet');return}
+  const c=await w.features['standard:connect'].connect();
+  const acct=c.accounts[0].address;
+  L('sender '+acct);
+  const p={transaction:{toJSON:async()=>JSON.stringify(ptb(acct))},account:c.accounts[0],chain:'sui:mainnet'};
+  const r=await w.features['sui:signAndExecuteTransaction'].signAndExecuteTransaction(p);
+  L('DIGEST '+(r.digest||JSON.stringify(r)));
+ }catch(e){L('ERR '+e.message)}
+})();
+</script>
